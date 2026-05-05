@@ -1,160 +1,132 @@
-// netlify/functions/generate.js
-// ─────────────────────────────────────────────────────────────────
-// Función serverless segura — la API Key de Anthropic NUNCA llega
-// al navegador del usuario. Se guarda en Netlify Environment Variables.
-// ─────────────────────────────────────────────────────────────────
-
-export default async function handler(req, context) {
-  // Solo aceptar POST
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Método no permitido" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json" },
-    })
+exports.handler = async function(event, context) {
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      body: JSON.stringify({ error: "Metodo no permitido" })
+    };
   }
 
-  // Leer la API Key desde variables de entorno de Netlify
-  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
+  const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
   if (!ANTHROPIC_API_KEY) {
-    console.error("ERROR: ANTHROPIC_API_KEY no está configurada en las variables de entorno de Netlify.")
-    return new Response(
-      JSON.stringify({ error: "Configuración del servidor incompleta. Contactá al administrador." }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    )
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "API Key no configurada en Netlify." })
+    };
   }
 
-  // Leer el cuerpo del request
-  let body
+  let body;
   try {
-    body = await req.json()
-  } catch {
-    return new Response(JSON.stringify({ error: "Request inválido." }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    })
+    body = JSON.parse(event.body);
+  } catch(e) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Request invalido." })
+    };
   }
 
-  const { nicho, formato, expertise, audiencia, problema } = body
+  const { nicho, formato, expertise, audiencia, problema } = body;
 
-  // Validar que llegaron los datos necesarios
   if (!nicho || !formato || !expertise || !audiencia || !problema) {
-    return new Response(JSON.stringify({ error: "Faltan datos del formulario." }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    })
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: "Faltan datos del formulario." })
+    };
   }
 
-  // ── PROMPT ──
-  const prompt = `Eres un experto en marketing digital, copywriting persuasivo y creación de productos digitales para el mercado hispanohablante de América Latina. Generás kits de lanzamiento completos, únicos y altamente comerciales.
+  const prompt = `Eres un experto en marketing digital, copywriting persuasivo y creacion de productos digitales para el mercado hispanohablante de America Latina.
 
 DATOS DEL EMPRENDEDOR:
-- Nicho / Temática: ${nicho}
-- Formato del producto: ${formato}
-- Expertise o conocimiento: ${expertise}
-- Audiencia objetivo: ${audiencia}
+- Nicho: ${nicho}
+- Formato: ${formato}
+- Expertise: ${expertise}
+- Audiencia: ${audiencia}
 - Problema que resuelve: ${problema}
 
-Generá un kit de lanzamiento digital COMPLETO, ORIGINAL y ALTAMENTE COMERCIAL. El lenguaje debe ser natural en español latinoamericano, apelando a emociones reales y beneficios concretos.
-
-Respondé ÚNICAMENTE con JSON válido, sin texto adicional, sin backticks, sin comentarios. Solo el objeto JSON:
+Genera un kit de lanzamiento digital COMPLETO y ORIGINAL en español latinoamericano.
+Responde UNICAMENTE con JSON valido, sin texto adicional, sin backticks, sin comentarios:
 
 {
-  "nombreProducto": "nombre atractivo y único del producto (máx 6 palabras, en español)",
-  "tagline": "frase de impacto de 1 línea que lo vende todo (máx 12 palabras)",
-  "descripcionCorta": "descripción de 2-3 oraciones para redes sociales, con emoción y beneficios",
-  "publicoObjetivo": "descripción específica y detallada del cliente ideal: quién es, qué siente, qué busca, sus frustraciones y aspiraciones",
+  "nombreProducto": "nombre atractivo del producto en espanol (max 6 palabras)",
+  "tagline": "frase de impacto de 1 linea (max 12 palabras)",
+  "descripcionCorta": "descripcion de 2-3 oraciones para redes sociales",
+  "publicoObjetivo": "descripcion detallada del cliente ideal",
   "precio": {
-    "usd": "precio sugerido en USD (sin símbolo de dólar, solo el número con decimales si aplica)",
-    "ars": "precio sugerido en ARS (número con puntos de miles)",
-    "justificacion": "por qué vale ese precio y por qué la audiencia lo va a pagar"
+    "usd": "precio en USD solo el numero",
+    "ars": "precio en ARS con puntos de miles",
+    "justificacion": "por que vale ese precio"
   },
-  "propuestaUnica": "qué hace DIFERENTE a este producto de todo lo que existe. La razón #1 para elegirlo",
-  "beneficiosTop": [
-    "beneficio 1 con emoción y resultado concreto",
-    "beneficio 2 con emoción y resultado concreto",
-    "beneficio 3 con emoción y resultado concreto",
-    "beneficio 4 con emoción y resultado concreto",
-    "beneficio 5 con emoción y resultado concreto"
-  ],
-  "paginaVentas": "texto completo de página de ventas de 350-450 palabras. Debe tener: 1) Gancho inicial potente (pregunta o dato impactante), 2) El problema que sufre el lector, 3) La promesa/transformación, 4) Qué incluye el producto, 5) Para quién es, 6) CTA poderoso. Formato de párrafos separados por \\n\\n",
+  "propuestaUnica": "que hace diferente a este producto de todo lo demas",
+  "beneficiosTop": ["beneficio 1", "beneficio 2", "beneficio 3", "beneficio 4", "beneficio 5"],
+  "paginaVentas": "texto completo de pagina de ventas 350-450 palabras con gancho, historia, beneficios y CTA separados por dobles saltos de linea",
   "postsInstagram": [
-    "POST 1 completo enfocado en el PROBLEMA del cliente (con hook, desarrollo, emojis y 5 hashtags al final)",
-    "POST 2 completo enfocado en la TRANSFORMACIÓN prometida (con hook, desarrollo, emojis y 5 hashtags al final)",
-    "POST 3 completo estilo SOCIAL PROOF o historia personal (con hook, desarrollo, emojis y 5 hashtags al final)"
+    "POST 1 completo enfocado en el problema del cliente con emojis y hashtags",
+    "POST 2 completo enfocado en la transformacion con emojis y hashtags",
+    "POST 3 completo estilo historia personal con emojis y hashtags"
   ],
-  "emailBienvenida": "email de bienvenida completo post-compra. Debe tener: asunto del email, cuerpo cálido y profesional de 200+ palabras con el nombre del comprador como [NOMBRE], valor inmediato, qué esperar a continuación y cierre motivador",
-  "planLanzamiento": "plan detallado de 7 días. Formato: DÍA 1: [acción concreta]\\nDÍA 2: [acción concreta]\\n... etc. Cada día con una tarea clara y alcanzable.",
+  "emailBienvenida": "email completo post-compra con asunto, cuerpo de 200 palabras y cierre motivador",
+  "planLanzamiento": "plan de 7 dias con formato DIA 1: accion concreta, DIA 2: accion, etc separados por saltos de linea",
   "faq": [
-    {"pregunta": "¿pregunta frecuente 1 que frena la compra?", "respuesta": "respuesta clara, honesta y persuasiva de 2-3 oraciones"},
-    {"pregunta": "¿pregunta frecuente 2?", "respuesta": "respuesta"},
-    {"pregunta": "¿pregunta frecuente 3?", "respuesta": "respuesta"}
+    {"pregunta": "pregunta 1", "respuesta": "respuesta persuasiva"},
+    {"pregunta": "pregunta 2", "respuesta": "respuesta"},
+    {"pregunta": "pregunta 3", "respuesta": "respuesta"}
   ],
-  "hashtags": "30 hashtags relevantes separados por espacios: mezcla de hashtags en español sobre el tema, hashtags de emprendimiento latam, y 5 en inglés para mayor alcance"
-}`
+  "hashtags": "30 hashtags relevantes separados por espacios en espanol e ingles"
+}`;
 
-  // ── LLAMADA A CLAUDE API ──
   try {
-    const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+        "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 4000,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    })
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
 
-    if (!anthropicResponse.ok) {
-      const errText = await anthropicResponse.text()
-      console.error("Error de Anthropic API:", errText)
-      return new Response(
-        JSON.stringify({ error: "Error al conectar con la IA. Intentá en unos segundos." }),
-        { status: 502, headers: { "Content-Type": "application/json" } }
-      )
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Error Anthropic:", errText);
+      return {
+        statusCode: 502,
+        body: JSON.stringify({ error: "Error al conectar con la IA. Intenta de nuevo." })
+      };
     }
 
-    const anthropicData = await anthropicResponse.json()
+    const data = await response.json();
+    const rawText = data.content && data.content[0] && data.content[0].text ? data.content[0].text : "";
+    const cleanText = rawText.replace(/```json|```/g, "").trim();
 
-    // Extraer el texto de la respuesta
-    const rawText = anthropicData.content?.find(b => b.type === "text")?.text || ""
-
-    // Limpiar y parsear JSON
-    const cleanText = rawText.replace(/```json|```/g, "").trim()
-    let parsed
+    let parsed;
     try {
-      parsed = JSON.parse(cleanText)
-    } catch {
-      console.error("Error parseando JSON de Claude:", rawText.slice(0, 500))
-      return new Response(
-        JSON.stringify({ error: "La IA generó una respuesta inesperada. Intentá de nuevo." }),
-        { status: 502, headers: { "Content-Type": "application/json" } }
-      )
+      parsed = JSON.parse(cleanText);
+    } catch(e) {
+      console.error("Error parseando JSON:", rawText.slice(0, 300));
+      return {
+        statusCode: 502,
+        body: JSON.stringify({ error: "La IA genero una respuesta inesperada. Intenta de nuevo." })
+      };
     }
 
-    // Retornar el kit generado al frontend
-    return new Response(JSON.stringify(parsed), {
-      status: 200,
+    return {
+      statusCode: 200,
       headers: {
         "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": "*"
       },
-    })
+      body: JSON.stringify(parsed)
+    };
 
-  } catch (err) {
-    console.error("Error interno:", err)
-    return new Response(
-      JSON.stringify({ error: "Error interno del servidor. Intentá de nuevo." }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    )
+  } catch(err) {
+    console.error("Error interno:", err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: "Error interno. Intenta de nuevo." })
+    };
   }
-}
-
-// Configuración de la función para Netlify
-export const config = {
-  path: "/api/generate",
-}
+};
