@@ -39,7 +39,10 @@ exports.handler = async function(event) {
     }
     var data = await res.json();
     var raw = data.content && data.content[0] ? data.content[0].text : "";
-    var clean = raw.replace(/```json/g, "").replace(/```/g, "").trim();
+    var clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+var start = clean.indexOf("{");
+var end = clean.lastIndexOf("}");
+if (start !== -1 && end !== -1) { clean = clean.slice(start, end + 1); }
     var parsed;
     try { parsed = JSON.parse(clean); }
     catch(e) {
