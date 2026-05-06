@@ -17,7 +17,7 @@ exports.handler = async function(event) {
   if (!nicho || !formato || !expertise || !audiencia || !problema) {
     return { statusCode: 400, body: JSON.stringify({ error: "Faltan datos." }) };
   }
-  var prompt = "Eres experto en marketing digital latinoamericano. Crea un kit de lanzamiento para:\nNicho: " + nicho + "\nFormato: " + formato + "\nExpertise: " + expertise + "\nAudiencia: " + audiencia + "\nProblema: " + problema + "\n\nResponde SOLO JSON sin backticks:\n{\"nombreProducto\":\"nombre comercial\",\"tagline\":\"frase de venta\",\"descripcionCorta\":\"descripcion 2 oraciones\",\"publicoObjetivo\":\"avatar del cliente ideal\",\"precio\":{\"usd\":\"27\",\"ars\":\"36.700\",\"justificacion\":\"justificacion del precio\"},\"propuestaUnica\":\"diferenciador clave\",\"beneficiosTop\":[\"beneficio 1\",\"beneficio 2\",\"beneficio 3\",\"beneficio 4\",\"beneficio 5\"],\"paginaVentas\":\"pagina de ventas 300 palabras con gancho, problema, solucion, beneficios y CTA\",\"postsInstagram\":[\"Post 1 problema con emojis y hashtags\",\"Post 2 transformacion con emojis y hashtags\",\"Post 3 historia con emojis y hashtags\"],\"emailBienvenida\":\"email post-compra completo con asunto y cuerpo\",\"planLanzamiento\":\"DIA 1: accion\\nDIA 2: accion\\nDIA 3: accion\\nDIA 4: accion\\nDIA 5: accion\\nDIA 6: accion\\nDIA 7: accion\",\"faq\":[{\"pregunta\":\"Para quien es?\",\"respuesta\":\"respuesta\"},{\"pregunta\":\"Como accedo?\",\"respuesta\":\"Por email de Hotmart al instante\"},{\"pregunta\":\"Tiene garantia?\",\"respuesta\":\"Si, 7 dias sin preguntas\"}],\"hashtags\":\"#emprendimiento #negociodigital #productosdigitales #marketingdigital #latinoamerica #libertadfinanciera #emprender #ingresos #trabajodesdecasa #emprendedora\"}";
+  var prompt = "Kit de lanzamiento digital en español para:\nNicho:" + nicho + "\nFormato:" + formato + "\nExpertise:" + expertise + "\nAudiencia:" + audiencia + "\nProblema:" + problema + "\n\nJSON sin backticks:{\"nombreProducto\":\"X\",\"tagline\":\"X\",\"descripcionCorta\":\"X\",\"publicoObjetivo\":\"X\",\"precio\":{\"usd\":\"27\",\"ars\":\"36700\",\"justificacion\":\"X\"},\"propuestaUnica\":\"X\",\"beneficiosTop\":[\"X\",\"X\",\"X\",\"X\",\"X\"],\"paginaVentas\":\"X\",\"postsInstagram\":[\"X\",\"X\",\"X\"],\"emailBienvenida\":\"X\",\"planLanzamiento\":\"X\",\"faq\":[{\"pregunta\":\"X\",\"respuesta\":\"X\"},{\"pregunta\":\"X\",\"respuesta\":\"X\"},{\"pregunta\":\"X\",\"respuesta\":\"X\"}],\"hashtags\":\"X\"}";
   try {
     var res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -27,8 +27,8 @@ exports.handler = async function(event) {
         "anthropic-version": "2023-06-01"
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 2000,
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1500,
         messages: [{ role: "user", content: prompt }]
       })
     });
@@ -38,10 +38,7 @@ exports.handler = async function(event) {
       return { statusCode: 502, body: JSON.stringify({ error: "Error IA: " + errText.slice(0, 100) }) };
     }
     var data = await res.json();
-    var raw = "";
-    if (data.content && data.content[0] && data.content[0].text) {
-      raw = data.content[0].text;
-    }
+    var raw = data.content && data.content[0] ? data.content[0].text : "";
     var clean = raw.replace(/```json/g, "").replace(/```/g, "").trim();
     var parsed;
     try { parsed = JSON.parse(clean); }
