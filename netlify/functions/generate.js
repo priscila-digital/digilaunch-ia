@@ -17,7 +17,7 @@ exports.handler = async function(event) {
   if (!nicho || !formato || !expertise || !audiencia || !problema) {
     return { statusCode: 400, body: JSON.stringify({ error: "Faltan datos." }) };
   }
-  var prompt = "Kit de lanzamiento digital en español para:\nNicho:" + nicho + "\nFormato:" + formato + "\nExpertise:" + expertise + "\nAudiencia:" + audiencia + "\nProblema:" + problema + "\n\nJSON sin backticks:{\"nombreProducto\":\"X\",\"tagline\":\"X\",\"descripcionCorta\":\"X\",\"publicoObjetivo\":\"X\",\"precio\":{\"usd\":\"27\",\"ars\":\"36700\",\"justificacion\":\"X\"},\"propuestaUnica\":\"X\",\"beneficiosTop\":[\"X\",\"X\",\"X\",\"X\",\"X\"],\"paginaVentas\":\"X\",\"postsInstagram\":[\"X\",\"X\",\"X\"],\"emailBienvenida\":\"X\",\"planLanzamiento\":\"X\",\"faq\":[{\"pregunta\":\"X\",\"respuesta\":\"X\"},{\"pregunta\":\"X\",\"respuesta\":\"X\"},{\"pregunta\":\"X\",\"respuesta\":\"X\"}],\"hashtags\":\"X\"}";
+  var prompt = "Kit de lanzamiento digital en espanol para:\nNicho:" + nicho + "\nFormato:" + formato + "\nExpertise:" + expertise + "\nAudiencia:" + audiencia + "\nProblema:" + problema + "\n\nResponde SOLO con el objeto JSON, sin texto antes ni despues, sin backticks, sin markdown:\n{\"nombreProducto\":\"nombre\",\"tagline\":\"frase\",\"descripcionCorta\":\"descripcion\",\"publicoObjetivo\":\"avatar\",\"precio\":{\"usd\":\"27\",\"ars\":\"36700\",\"justificacion\":\"justificacion\"},\"propuestaUnica\":\"diferenciador\",\"beneficiosTop\":[\"b1\",\"b2\",\"b3\",\"b4\",\"b5\"],\"paginaVentas\":\"texto ventas\",\"postsInstagram\":[\"post1\",\"post2\",\"post3\"],\"emailBienvenida\":\"email\",\"planLanzamiento\":\"plan 7 dias\",\"faq\":[{\"pregunta\":\"p1\",\"respuesta\":\"r1\"},{\"pregunta\":\"p2\",\"respuesta\":\"r2\"},{\"pregunta\":\"p3\",\"respuesta\":\"r3\"}],\"hashtags\":\"hashtags\"}";
   try {
     var res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -38,15 +38,21 @@ exports.handler = async function(event) {
       return { statusCode: 502, body: JSON.stringify({ error: "Error IA: " + errText.slice(0, 100) }) };
     }
     var data = await res.json();
-    var raw = data.content && data.content[0] ? data.content[0].text : "";
-    var clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-var start = clean.indexOf("{");
-var end = clean.lastIndexOf("}");
-if (start !== -1 && end !== -1) { clean = clean.slice(start, end + 1); }
+    var raw = "";
+    if (data.content && data.content[0] && data.content[0].text) {
+      raw = data.content[0].text;
+    }
+    var start = raw.indexOf("{");
+    var end = raw.lastIndexOf("}");
+    if (start === -1 || end === -1) {
+      console.error("No JSON found:", raw.slice(0, 200));
+      return { statusCode: 502, body: JSON.stringify({ error: "Intenta de nuevo." }) };
+    }
+    var clean = raw.slice(start, end + 1);
     var parsed;
     try { parsed = JSON.parse(clean); }
     catch(e) {
-      console.error("JSON error:", raw.slice(0, 200));
+      console.error("JSON parse error:", clean.slice(0, 200));
       return { statusCode: 502, body: JSON.stringify({ error: "Intenta de nuevo." }) };
     }
     return {
